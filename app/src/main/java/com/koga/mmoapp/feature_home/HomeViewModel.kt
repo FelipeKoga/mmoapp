@@ -6,9 +6,7 @@ import com.koga.mmoapp.data.repository.GameRepository
 import com.koga.mmoapp.data.utils.Resource
 import com.koga.mmoapp.model.Game
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -21,19 +19,25 @@ class HomeViewModel @Inject constructor(
     val uiState = _uiState.asStateFlow()
 
     init {
-        viewModelScope.launch {
-            when (val response = repository.fetchGamesStream()) {
+        repository.fetchGamesStream().onEach { resource ->
+            when (resource) {
+                is Resource.Loading -> {
+                    _uiState.update {
+                        it.copy(isLoading = true, games = resource.data ?: it.games)
+                    }
+                }
                 is Resource.Error -> {
-                    println("#### ${response.throwable}")
+                    _uiState.update {
+                        it.copy(isLoading = false, games = resource.data ?: it.games)
+                    }
                 }
                 is Resource.Success -> {
                     _uiState.update {
-                        it.copy(games = response.data)
+                        it.copy(isLoading = false, games = resource.data)
                     }
                 }
             }
-
-        }
+        }.launchIn(viewModelScope)
     }
 }
 
